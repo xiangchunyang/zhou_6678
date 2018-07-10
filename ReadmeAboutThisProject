@@ -1,0 +1,131 @@
+//=============================================================================================================
+一、工程由来
+2016-7-04 本工程由工程SRIO_App2FPGA_FromLoopbackDioIsrExamp和工程SocketEchoServer_evmc6678l_1合并而来。
+SRIO_App2FPGA_FromLoopbackDioIsrExamp工程的描述参见文档SRIO_LoopbackDioIsrexampleproject.txt；
+工程SocketEchoServer_evmc6678l_1的描述参见文档clientProject_readMe.txt。
+
+二、存在的问题
+/*----存在的问题----------------------------------------------------*/
+1.网络部分工作正常，提示：Verify_Init: Expected 0 entry count for Queue number = 898, found 128 entries
+未解决:
+2.SRIO driver Srio_start()失败。这是当前需要解决的关键问题。
+2016-7-5 解决办法：定位跟踪了错误发生在 Srio_start()中调用的函数：result = Srio_processDrvConfig(ptr_srioDrvInst);返回了-1，导致Srio_start()失败
+修改了SRIO端配置的累加器通道，如下：drvCfg.u.drvManagedCfg.rxCfg.accCfg.channel= coreNum+4;问题解决。
+3.程序运行时，PC机connect时，网络没反映。
+2016-7-7：解决方法：发现网络和SRIO都使用了中断事件48，存在冲突，导致connect失败。去掉SRIO端的相关部分代码后，问题解决。代码如下：
+    /*----2016-7-6 hxl :the following part is conflict with net connect-------------------*/
+    // Hook up the SRIO interrupts with the core.
+    /*EventCombiner_dispatchPlug (48, (EventCombiner_FuncPtr)Srio_rxCompletionIsr, (UArg)hDrvManagedSrioDrv, TRUE);
+	EventCombiner_enableEvent(48);*/
+    /*--end--2016-7-6 hxl :the following part is conflict with net connect-------------------*/
+4.网络connect后，若超过十几秒不发送数据，就提示TCP: Keep Timeout。   已解决
+2016-8-4 解决办法：
+       将client.c-->StackTest()中的下列代码不执行。
+   #if 0
+    // TCP Keep Idle (10 seconds)
+    rc = 100;
+    //rc = 1000;
+    //   This is the time a connection is idle before TCP will probe
+    CfgAddEntry( hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPIDLE,
+                 CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0 );
+
+    // TCP Keep Interval (1 second)
+    //   This is the time between TCP KEEP probes
+    rc = 10;
+    CfgAddEntry( hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPINTVL,
+                 CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0 );
+
+    // TCP Max Keep Idle (5 seconds)
+    //   This is the TCP KEEP will probe before dropping the connection
+    rc = 50;//
+    //rc = 500;
+    CfgAddEntry( hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPMAXIDLE,
+                 CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0 );
+   #endif
+5.myDoorblComeIsr(UArg argument)中统计的中断次数与网络中统计的发送次数不一致。实际应用要求doorbell中断每中断一次，表示FPGA已经发送一根数据线至MSM中，然后网络需要及时将数据线发送至PC机，不能丢线。
+      解决办法：2016-7-18 修改了程序线程之间的同步机制，信号量变为COUNTING模式，doorbell中断接收数据时添加了buffer(缓存若干根线，环形buffer)
+6.myDoorblComeIsr(UArg argument)中读取由FPGA经SRIO发送过来的数据线的线号时，读取结果不正确。
+     原因：中断中，读取fpgaData的首元素(线号)时，是从L1D或L2Dcache中读取的，不是直接从fpgaData的存储地址(位于MSM中)中读取的，因此读取的是
+     cache中的old data。
+    解决办法：2016-8-4 在myDoorblComeIsr()中添加了以下指令：
+        Cache_setMar((void*)fpgaData0, 64, 0);//set fpgadata0 to non cachable
+	    Cache_setMar((void*)fpgaData1, 64, 0);
+7.PC机接收的数据(10000根线，每线16384个short类型)，会出现跳跃现象，即传输过程中有若干线(约几百根线)丢失，后面的线仍以正确的线号和线数据传输。
+    原因：NDK提示"TCP Retransimit Timeout",打印到CCS console中，打印过程中占用CPU时间，未能及时响应Doorbell中断。
+ 解决办法：关掉NDK debug 信息的打印。具体步骤如下：
+  rc=DBG_NONE; //2016-8-2 hxl 禁止打印ndk调试信息
+  CfgAddEntry( hCfg, CFGTAG_OS, CFGITEM_OS_DBGPRINTLEVEL,
+                 CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0 );
+   注意：也可以在XGCONF界面中进行操作，这里由于工程中遗留的问题(使用老式代码方式进行的NDK stack 配置)，所以选择使用上述代码解决这一问题。
+8.程序结构(头文件、变量定义和声明等)不规范。
+  2016-8-17 修改了程序的不规范问题，主要是特殊关键字(static、volatile等的使用)、自己编写的头文件格式。
+9.数据线缓存的大小：
+2016-8-18     LINENUM_BUF(可缓存的线数目)=100时，程序稳定执行无数据错误；
+              LINENUM_BUF(可缓存的线数目)=80时，程序稳定执行无数据错误；
+              LINENUM_BUF(可缓存的线数目)=50时，程序执行不稳定，有时会总丢线数据。
+10.2016-9-2 使用MSM时，设置XMC的prefech禁止和cache 无效化。
+        前者通过函数 MSM_init实现，后者通过调用函数Cache_inv()实现
+        如：Cache_inv((void*)fpgaData0, sizeof(fpgaData0), Cache_Type_ALLD, 1);
+11.2016-9-2 改变原始platform(ti.platforms.my6678EVM，L2全SRAM)为新的platform(ti.platforms.my6678EVMhxl),后者将L2设置为部分用作cache。
+   经验证，数据传输正确。
+五、实现的功能：
+1.2016-8-4 网络和SRIO同时工作，成功。传送至PC机的数据的正确性经验证：没有问题。回波数据后处理不作为一个单独的任务存在。
+六：尚存在的问题：
+1.NDK依然会提示"TCP Retransimit Timeout"，需要从根本上解决该问题。如果不关闭NDK调试信息的打印，这一重传的提示会导致发送到PC机上的线数据出现丢线的现象。
+2.2016-11-02 SPI nor Flash boot 成功，但程序运行到一会提示错误。
+  2016-12-15 可能原因：SPI nor RBL boot 方式下对DDR采用参数配置表初始化时，DDR工作不稳定。参见ti 论坛上的帖子
+  2016-12-15 IBL boot 成功，连续运行也成功。  
+七。工程目的：
+2017-3-17
+该工程可以用于测试以下数据传输过程：
+1.回波数据：FPGA--->DSP--->PC机。即FPGA经SRIO 采用DIO方式直接发送线数据至DSP的MSM中，采用Doorbell中断方式通知DSP读取线数据，并依序经网络接口发送至PC机。
+2.下载参数：PC--->DSP-->FPGA (DSP接收PC参数并将其传输给FPGA)
+        PC<---DSP<--FPGA
+
+
+
+=====================================================================================================
+                                                                                                            以下是第三轮修改
+======================================================================================================
+  
+/*一、********************修改历史*******************************************************/ 
+1.2017-5-17 
+ (1)将接收缓存(beforeData[][])变大为可缓存200根线
+ (2)StackTest()中，修改网络调度器的优先级：
+   rc = NC_SystemOpen( NC_PRIORITY_HIGH , NC_OPMODE_INTERRUPT );
+        网络任务task_TCP_recvSvr()的优先级选择要低于NC_PRIORITY_HIGH，但高于其他任务。
+2.2017-06-29 添加了SRIO 物理层异常(SRIO传输崩溃)的纠正和处理。位于task_TCP_Svr.c中。
+/*二、********************需要改进的地方*******************************************************/ 	
+
+1.2017-5-12 SRIO发送或接收buf采用动态申请的方式	
+
+/*五、********************实现的功能：***********************************************************/
+1.2016-8-4 网络和SRIO同时工作，成功。传送至PC机的数据的正确性经验证：没有问题。回波数据后处理不作为一个单独的任务存在。
+/*********************六：尚存在的问题：*****************************************************/
+1.NDK依然会提示"TCP Retransimit Timeout"，需要从根本上解决该问题。如果不关闭NDK调试信息的打印，这一重传的提示会导致发送到PC机上的线数据出现丢线的现象。
+2.2016-11-02 SPI nor Flash boot 成功，但程序运行到一会提示错误。
+  2016-12-15 可能原因：SPI nor RBL boot 方式下对DDR采用参数配置表初始化时，DDR工作不稳定。参见ti 论坛上的帖子
+  2016-12-15 IBL boot 成功，连续运行也成功。  
+3. 2017-6-29 添加SRIO传输崩溃后的恢复代码，当FPGA端程序复位时(模拟崩溃的情况)，恢复成功
+七。工程目的：
+2017-3-17
+该工程可以用于测试以下数据传输过程：
+1.回波数据：FPGA--->DSP--->PC机。即FPGA经SRIO 采用DIO方式直接发送线数据至DSP的MSM中，采用Doorbell中断方式通知DSP读取线数据，并依序经网络接口发送至PC机。
+2.下载参数：PC--->DSP-->FPGA (DSP接收PC参数并将其传输给FPGA)
+        PC<---DSP<--FPGA
+		
+=====================================================================================================
+                                                                                                            以下是第四轮修改： 相对于工程SocketEchoServerAndSRIO_evmc6678l_2_releaseV4_m
+======================================================================================================
+1.2017-10-16 在SocketEchoServerAndSRIO_evmc6678l_2_releaseV3_m的基础上，添加了每根数据线的0相位滤波后处理功能；
+	经统计，当前单核处理模式下，0相位滤波和4倍下抽样的总耗时约600~700us。这成为限制上传速度和帧率的一个影响因素。
+	滤波采用的是定点滤波的实现方式
+=====================================================================================================
+                                                                                                            以下是第五轮修改： 相对于工程SocketEchoServerAndSRIO_evmc6678l_2_releaseV4_mm
+======================================================================================================
+1.2017-11-09 在SocketEchoServerAndSRIO_evmc6678l_2_releaseV4_mm的基础上,将定点0相位滤波的后处理修改为浮点函数的实现形式
+2.注意：滤波中间变量x,r放置于ddr3时程序运行会出现异常，放置于SL2或L2时运行正常
+
+=====================================================================================================
+2018-1-12 作为第一套release 程序固化于硬件系统中使用。（不使用EDMA）
+=====================================================================================================

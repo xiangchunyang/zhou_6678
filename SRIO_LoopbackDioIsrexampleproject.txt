@@ -1,0 +1,8 @@
+-ccs.linkFile "PDK_INSTALL_PATH/ti/drv/srio/example/SRIOLoopbackDioIsr/loopbackDioIsr.c" 
+-ccs.linkFile "PDK_INSTALL_PATH/ti/drv/srio/example/SRIOLoopbackDioIsr/loopbackDioIsr_osal.c" 
+-ccs.linkFile "PDK_INSTALL_PATH/ti/drv/srio/device/device_srio_loopback.c" 
+-ccs.linkFile "PDK_INSTALL_PATH/ti/drv/cppi/device/cppi_device.c" 
+-ccs.linkFile "PDK_INSTALL_PATH/ti/drv/qmss/device/qmss_device.c" 
+-ccs.linkFile "PDK_INSTALL_PATH/ti/drv/srio/example/SRIOLoopbackDioIsr/loopbackDioIsr.cmd" 
+-ccs.linkFile "PDK_INSTALL_PATH/ti/drv/srio/example/SRIOLoopbackDioIsr/loopbackDioIsr.cfg" 
+-ccs.setCompilerOptions "-mv6600 -g --diag_warning=225 -I${PDK_INSTALL_PATH}/ti/drv/srio/example/SRIOLoopbackDioIsr" -rtsc.enableRtsc 
