@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include <xdc/runtime/System.h>		  // ‘“ª ‘ hahahhahahhhhhh   uu∂Óu44444∂Óuu
-#include <ti/sysbios/hal/Hwi.h>		  //zailaishiyixiaggggg
+#include <xdc/runtime/System.h>
+#include <ti/sysbios/hal/Hwi.h>
 #include <ti/sysbios/knl/Task.h>	  //hxl added
 #include <ti/sysbios/knl/Semaphore.h> // hxl
 //#include <xdc/runtime/Memory.h>//hxl added

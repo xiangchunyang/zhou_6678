@@ -44,11 +44,7 @@
 */
 
 #include <stdio.h>
-<<<<<<< HEAD
-#include <xdc/runtime/Error.h> //hxl added   试一试
-=======
 #include <xdc/runtime/Error.h> //hxl added
->>>>>>> 1ba0dff2fbfd2e864c79fa43c756e9037d55419b
 #include <xdc/runtime/System.h>
 
 #include <ti/ndk/inc/netmain.h>
