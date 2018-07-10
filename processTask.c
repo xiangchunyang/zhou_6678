@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <xdc/runtime/System.h>		  // ‘“ª ‘ hahahhahahhhhhh
+#include <xdc/runtime/System.h>		  // ‘“ª ‘ hahahhahahhhhhh   uu∂Óu∂Óuu
 #include <ti/sysbios/hal/Hwi.h>		  //zailaishiyixiaggggg
 #include <ti/sysbios/knl/Task.h>	  //hxl added
 #include <ti/sysbios/knl/Semaphore.h> // hxl

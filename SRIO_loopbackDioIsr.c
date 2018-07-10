@@ -104,7 +104,11 @@
 
 #include "SRIO_loopbackDioIsr.h"
 #include "resourcemgr_aided_hxl.h" //2016-2-29:hxl: added
+<<<<<<< HEAD
 #include "client.h"				   ////2016-2-29:hxl: added 345678
+=======
+#include "client.h"				   ////2016-2-29:hxl: added
+>>>>>>> 1ba0dff2fbfd2e864c79fa43c756e9037d55419b
 #include "device_srio_loopback.h"
 #include "SRIO_MSM_init.h"
 #include "srio_drv_hxl.h" //hxl:2017-6-29 added
