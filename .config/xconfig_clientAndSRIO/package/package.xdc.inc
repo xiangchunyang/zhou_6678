@@ -1,0 +1,12 @@
+package.xdc
+package.xs
+package/xconfig_clientAndSRIO.sch
+package/.vers_g180
+package/.vers_r170
+package/.vers_b150
+package/.xdc-y30
+package/xconfig_clientAndSRIO.java
+package/xconfig_clientAndSRIO.class
+package/package_xconfig_clientAndSRIO.c
+package/package.defs.h
+package/xconfig_clientAndSRIO.ccs

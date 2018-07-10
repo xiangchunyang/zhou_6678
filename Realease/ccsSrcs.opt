@@ -1,0 +1,1 @@
+"../ srio_drv.c" "../SRIO_MSM_init.c" "../SRIO_TransmitToFPGA.c" "../SRIO_loopbackDioIsr.c" "../SRIO_loopbackDioIsr_osal.c" "../client.c" "../clientAndSRIO.cfg" "../device_srio_loopback.c" "../idleFunctions_appuser.c" "../platform_osal.c" "../processTask.c" "../resourcemgr.c" "../task_TCP_Svr.c" 
